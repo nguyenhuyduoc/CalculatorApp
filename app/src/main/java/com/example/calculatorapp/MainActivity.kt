@@ -46,15 +46,18 @@ class MainActivity : ComponentActivity() {
         }
     }
 
-    private fun canAddOperation(): Boolean{
-        if(curWorkingTV.text.isEmpty()) return true
+    private fun canAddOperation(operator: String): Boolean{
+        if(curWorkingTV.text.isEmpty()) {
+            if(operator.last() in "x/%") return false
+            else return true
+        }
         if(curWorkingTV.text.last() == '+' || curWorkingTV.text.last() == '-'){
             return false
         }
         return true
     }
     fun operationAction(view: View) {
-        if (view is Button && canAddOperation()) {
+        if (view is Button && canAddOperation(view.text.toString())) {
             curWorkingTV.append(view.text)
             canAddDecimal = true
         }
