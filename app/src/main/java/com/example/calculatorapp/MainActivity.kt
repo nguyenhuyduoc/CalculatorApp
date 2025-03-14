@@ -5,8 +5,10 @@ import android.os.Bundle
 import android.view.View
 import android.widget.TextView
 import android.widget.Button
+import android.widget.Toast
 import androidx.activity.ComponentActivity
 import java.util.*
+import java.math.BigDecimal
 
 class MainActivity : ComponentActivity() {
     lateinit var oldWorkingTV: TextView
@@ -48,10 +50,10 @@ class MainActivity : ComponentActivity() {
 
     private fun canAddOperation(operator: String): Boolean{
         if(curWorkingTV.text.isEmpty()) {
-            if(operator.last() in "x/%") return false
+            if(operator in "x/%") return false
             else return true
         }
-        if(curWorkingTV.text.last() == '+' || curWorkingTV.text.last() == '-'){
+        if(curWorkingTV.text.last() in "+-x/%"){
             return false
         }
         return true
@@ -63,13 +65,24 @@ class MainActivity : ComponentActivity() {
         }
     }
     fun equalAction(view: View) {
-        oldWorkingTV.text = curWorkingTV.text
-//        curWorkingTV.text = getResult()
-        val result = evaluateExpression(curWorkingTV.text.toString())
-        if(result == result.toInt().toFloat()){
-            curWorkingTV.text = result.toInt().toString()
+        val processText = curWorkingTV.text
+        if(processText.isNotEmpty() && processText.last().isDigit()){
+            val result: BigDecimal? = evaluateExpression(processText.toString())
+
+            if(result != null){
+                oldWorkingTV.text = processText
+                if (result.stripTrailingZeros().scale() <= 0) {
+                    curWorkingTV.text = result.toInt().toString() // Nếu là số nguyên
+                } else {
+                    curWorkingTV.text = result.toPlainString() // Nếu là số thực, in đầy đủ
+                }
+            }
         }else{
-            curWorkingTV.text = result.toString()
+            Toast.makeText(
+                this@MainActivity,
+                "Invalid input",
+                Toast.LENGTH_SHORT
+            ).show()
         }
     }
 
@@ -85,7 +98,7 @@ class MainActivity : ComponentActivity() {
 //
 //        val result = addSubtractCalculate(timeDivisonList)
 //
-//        if(result == result.toInt().toFloat()){
+//        if(result == result.toInt().toBigDecimal()){
 //            return result.toInt().toString()
 //        }
 //
@@ -108,14 +121,14 @@ class MainActivity : ComponentActivity() {
 //            if(character.isDigit() || character == '.'){
 //                currentDigit += character
 //            }else{
-//                list.add(currentDigit.toFloat())
+//                list.add(currentDigit.toBigDecimal())
 //                currentDigit = ""
 //                list.add(character)
 //            }
 //        }
 //
 //        if(currentDigit != ""){
-//            list.add(currentDigit.toFloat())
+//            list.add(currentDigit.toBigDecimal())
 //        }
 //
 //        return list
@@ -137,12 +150,12 @@ class MainActivity : ComponentActivity() {
 //        return list
 //    }
 //
-//    private fun addSubtractCalculate(passedList: MutableList<Any>): Float {
-//        var result = passedList[0] as Float
+//    private fun addSubtractCalculate(passedList: MutableList<Any>): BigDecimal {
+//        var result = passedList[0] as BigDecimal
 //        for(i in passedList.indices){
 //            if(passedList[i] is Char && i != passedList.lastIndex){
 //                val operator = passedList[i]
-//                val nextDigit = passedList[i + 1] as Float
+//                val nextDigit = passedList[i + 1] as BigDecimal
 //                if(operator == '+'){
 //                    result += nextDigit
 //                }
@@ -163,8 +176,8 @@ class MainActivity : ComponentActivity() {
 //        for(i in passedList.indices){
 //            if(passedList[i] is Char && i != passedList.lastIndex && i < restartIndex){
 //                val operator = passedList[i]
-//                val prevDigit = passedList[i - 1] as Float
-//                val nextDigit = passedList[i + 1] as Float
+//                val prevDigit = passedList[i - 1] as BigDecimal
+//                val nextDigit = passedList[i + 1] as BigDecimal
 //
 //                when(operator){
 //                    'x' -> {
@@ -187,15 +200,33 @@ class MainActivity : ComponentActivity() {
 //        return newList
 //    }
 
-    fun evaluateExpression(expression: String): Float {
-        val numStack = Stack<Float>()
+    fun evaluateExpression(expression: String): BigDecimal? {
+        val numStack = Stack<BigDecimal>()
         val opStack = Stack<Char>()
 
-        fun mod(a: Float, b: Float): Float{
-            val q = (a/b).toInt()
-            if(q.toFloat() == a/b) return 0f
-            if(a < 0) return a - (q - 1)*b
-            else return a - q*b
+        fun mod(a: BigDecimal, b: BigDecimal): BigDecimal? {
+            if(b == BigDecimal.ZERO){
+                Toast.makeText(
+                    this@MainActivity,
+                    "Unable to mod for 0",
+                    Toast.LENGTH_SHORT
+                ).show()
+                return null
+            }
+
+            return a%b
+        }
+
+        fun div(a: BigDecimal, b: BigDecimal): BigDecimal? {
+            if(b == BigDecimal.ZERO){
+                Toast.makeText(
+                    this@MainActivity,
+                    "Unable to divide for 0",
+                    Toast.LENGTH_SHORT
+                ).show()
+                return null
+            }
+            return a/b
         }
 
         fun applyOperator() {
@@ -205,11 +236,11 @@ class MainActivity : ComponentActivity() {
             val a = numStack.pop()
             val op = opStack.pop()
 
-            val result = when (op) {
+            val result: BigDecimal? = when (op) {
                 '+' -> a + b
                 '-' -> a - b
                 'x' -> a * b
-                '/' -> a / b
+                '/' -> div(a, b)
                 '%' -> mod(a, b)
                 else -> throw IllegalArgumentException("Unknown operator: $op")
             }
@@ -233,7 +264,7 @@ class MainActivity : ComponentActivity() {
                         sb.append(expression[i])
                         i++
                     }
-                    numStack.push(sb.toString().toFloat())
+                    numStack.push(sb.toString().toBigDecimal())
                     i-- // Lùi lại tránh bỏ qua ký tự tiếp theo
                     allowNegative = false  // Sau số thì không thể có dấu '-' đơn lẻ
                 }
@@ -266,6 +297,8 @@ class MainActivity : ComponentActivity() {
             else -> 0
         }
     }
+
+
 
 
     fun allClearAction(view: View) {
